@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "deewaanai-serve"
 version = "0.1.0"
-description = "Pinned-expert Mixture-of-Experts inference engine for Apple Silicon (MLX): serve more concurrent users and run models larger than RAM."
+description = "Open research (proof of concept) on pinned-expert Mixture-of-Experts serving for Apple Silicon (MLX). Concurrency gains are measured; >RAM streaming is a slow feasibility demo, not a product."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "AGPL-3.0-only" }

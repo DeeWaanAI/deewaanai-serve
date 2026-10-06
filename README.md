@@ -1,7 +1,12 @@
 # DeeWaanAI Serve
 
-**A pinned-expert Mixture-of-Experts inference engine for Apple Silicon (MLX).**
-Serve more concurrent users, and run MoE models that are *larger than your RAM*.
+**Open research on serving Mixture-of-Experts models on Apple Silicon (MLX).**
+
+> ⚠️ **Status: research prototype / proof of concept — not a production tool.**
+> The concurrency finding (pinning hot experts serves more simultaneous users) is measured
+> and reproducible. The "run a model bigger than RAM" result is a **feasibility demo only** —
+> on a single laptop SSD it streams at ~2 tok/s, which is not usable for real workloads.
+> We publish the method, the numbers, and the honest limits so others can build on them.
 
 > This is a **serving system**, not a model. It keeps a traffic-ranked subset of a
 > Mixture-of-Experts model's experts resident in unified memory, dispatches via a
