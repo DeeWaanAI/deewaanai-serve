@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deewaanai-serve"
+version = "0.1.0"
+description = "Pinned-expert Mixture-of-Experts inference engine for Apple Silicon (MLX): serve more concurrent users and run models larger than RAM."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "AGPL-3.0-only" }
+authors = [{ name = "Youssef Hariri", email = "youssef@deewaanai.com" }]
+maintainers = [{ name = "Mug and Bewong Ltd (trading as DeeWaanAI)", email = "youssef@deewaanai.com" }]
+keywords = ["moe", "llm", "inference", "serving", "mlx", "apple-silicon", "metal"]
+classifiers = [
+  "License :: OSI Approved :: GNU Affero General Public License v3",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# Versions below are the ones the paper's numbers were produced with.
+dependencies = [
+  "mlx==0.32.2",
+  "mlx-lm==0.31.3",
+  "numpy==2.5.3",
+  "safetensors==0.8.0",
+  "transformers==5.17.0",
+  "huggingface-hub==1.32.0",
+]
+
+[project.optional-dependencies]
+figures = ["matplotlib>=3.8"]
+
+[project.scripts]
+dwa = "deewaanai_serve.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/DeeWaanAI/deewaanai-serve"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

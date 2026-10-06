@@ -1,0 +1,470 @@
+{
+ "schema": "paper-headline-numbers-v1",
+ "generated_from": "frozen results files only; self-verified",
+ "slo_floor_tok_s": 10.0,
+ "statistic": "p05 concurrency ceiling unless noted; p05_by_level values are tok/s",
+ "count": 85,
+ "numbers": {
+  "CX_OLMoE_pinned_ceiling": {
+   "v": 16,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.pinned_xover.ceiling_p05"
+  },
+  "CX_OLMoE_llama_ceiling": {
+   "v": 8,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.llama_xover.ceiling_p05"
+  },
+  "CX_OLMoE_advantage": {
+   "v": 2.0,
+   "src": "derived",
+   "formula": "pinned/llama"
+  },
+  "CX_OLMoE_llama_L1": {
+   "v": 64.718,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.llama_xover.p05_by_level.1"
+  },
+  "CX_OLMoE_llama_L8": {
+   "v": 11.03,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.llama_xover.p05_by_level.8"
+  },
+  "CX_OLMoE_llama_L12": {
+   "v": 8.061,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.llama_xover.p05_by_level.12"
+  },
+  "CX_OLMoE_pinned_L1": {
+   "v": 33.981,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.pinned_xover.p05_by_level.1"
+  },
+  "CX_OLMoE_pinned_L8": {
+   "v": 12.311,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.pinned_xover.p05_by_level.8"
+  },
+  "CX_OLMoE_pinned_L16": {
+   "v": 10.672,
+   "src": "results/crossover/p05/p05_ceilings.json",
+   "path": "arms.pinned_xover.p05_by_level.16"
+  },
+  "CX_Qwen15_pinned_ceiling": {
+   "v": 4,
+   "src": "results/crossover_qwen15/p05/p05_ceilings.json",
+   "path": "arms.pinned_qwen15moe.ceiling_p05"
+  },
+  "CX_Qwen15_llama_ceiling": {
+   "v": 8,
+   "src": "results/crossover_qwen15/p05/p05_ceilings.json",
+   "path": "arms.llama_qwen15moe.ceiling_p05"
+  },
+  "CX_Qwen15_advantage": {
+   "v": 0.5,
+   "src": "derived",
+   "formula": "pinned/llama"
+  },
+  "CX_Qwen30_pinned_ceiling": {
+   "v": 4,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_qwen3_30b_distinct.ceiling_p05"
+  },
+  "CX_Qwen30_llama_ceiling": {
+   "v": 4,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_qwen3_30b_distinct.ceiling_p05"
+  },
+  "CX_Qwen30_advantage": {
+   "v": 1.0,
+   "src": "derived",
+   "formula": "pinned/llama"
+  },
+  "CX_Qwen30_llama_L1_L8": {
+   "v": [
+    43.624,
+    26.986,
+    14.468,
+    7.706
+   ],
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_qwen3_30b_distinct.p05_by_level"
+  },
+  "MECH_jaccard_median": {
+   "v": 0.593,
+   "src": "results/telemetry/olmoe_trace400.json",
+   "path": "pairwise_jaccard.median",
+   "n_pairs": 19949
+  },
+  "MECH_cov95_k1": {
+   "v": 36.37,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "curve.0.95.1"
+  },
+  "MECH_cov95_k32": {
+   "v": 56.18,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "curve.0.95.32"
+  },
+  "MECH_cov95_k64": {
+   "v": 56.69,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "curve.0.95.64"
+  },
+  "MECH_cov90_k1": {
+   "v": 31.19,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "curve.0.9.1"
+  },
+  "MECH_cov90_k32": {
+   "v": 50.65,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "curve.0.9.32"
+  },
+  "MECH_single_request_experts": {
+   "v": 45.2,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "curve.1.0.1",
+   "of": 64
+  },
+  "MECH_single_request_frac": {
+   "v": 0.706,
+   "src": "derived",
+   "formula": "cov1.0_k1/experts_per_layer"
+  },
+  "MECH_experts_per_layer": {
+   "v": 64,
+   "src": "results/telemetry/olmoe_trace400_union.json",
+   "path": "experts_per_layer"
+  },
+  "MECH_top10_coverage": {
+   "v": 0.283,
+   "src": "results/telemetry/predictability_report.json",
+   "formula": "mean layer top_k_coverage.10"
+  },
+  "MECH_zipf_alpha": {
+   "v": 0.44,
+   "src": "results/telemetry/predictability_report.json",
+   "formula": "mean layer zipf_alpha"
+  },
+  "MECH_entropy_bits": {
+   "v": 5.862,
+   "src": "results/telemetry/predictability_report.json",
+   "formula": "mean layer entropy",
+   "max_bits": 6.0
+  },
+  "CLIFF_pf0.4_ceiling": {
+   "v": 0,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.4.ceiling_p05"
+  },
+  "CLIFF_pf0.4_L1": {
+   "v": 4.546,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.4.p05_by_level.1"
+  },
+  "CLIFF_pf0.6_ceiling": {
+   "v": 0,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.6.ceiling_p05"
+  },
+  "CLIFF_pf0.6_L1": {
+   "v": 3.637,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.6.p05_by_level.1"
+  },
+  "CLIFF_pf0.8_ceiling": {
+   "v": 0,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.8.ceiling_p05"
+  },
+  "CLIFF_pf0.8_L1": {
+   "v": 7.421,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.8.p05_by_level.1"
+  },
+  "CLIFF_pf1.0_ceiling": {
+   "v": 12,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf1.0.ceiling_p05"
+  },
+  "CLIFF_pf1.0_L1": {
+   "v": 105.696,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf1.0.p05_by_level.1"
+  },
+  "PF_pf0.4_ceiling": {
+   "v": 2,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.4_pf.ceiling_p05"
+  },
+  "PF_pf0.4_L1": {
+   "v": 12.77,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.4_pf.p05_by_level.1"
+  },
+  "PF_pf0.4_speedup": {
+   "v": 2.809,
+   "src": "derived",
+   "formula": "pf/no-pf L1"
+  },
+  "PF_pf0.6_ceiling": {
+   "v": 2,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.6_pf.ceiling_p05"
+  },
+  "PF_pf0.6_L1": {
+   "v": 6.93,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.6_pf.p05_by_level.1"
+  },
+  "PF_pf0.6_speedup": {
+   "v": 1.905,
+   "src": "derived",
+   "formula": "pf/no-pf L1"
+  },
+  "PF_pf0.8_ceiling": {
+   "v": 4,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.8_pf.ceiling_p05"
+  },
+  "PF_pf0.8_L1": {
+   "v": 15.062,
+   "src": "results/pinfraction/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.8_pf.p05_by_level.1"
+  },
+  "PF_pf0.8_speedup": {
+   "v": 2.03,
+   "src": "derived",
+   "formula": "pf/no-pf L1"
+  },
+  "AB_A_L1": {
+   "v": 0.909,
+   "src": "results/ram30b2/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.1_A.p05_by_level.1"
+  },
+  "AB_B_L1": {
+   "v": 1.934,
+   "src": "results/ram30b2/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.1_B.p05_by_level.1"
+  },
+  "AB_C_L1": {
+   "v": 0.372,
+   "src": "results/ram30b2/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.1_C.p05_by_level.1"
+  },
+  "AB_A_L2": {
+   "v": 0.316,
+   "src": "results/ram30b2/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.1_A.p05_by_level.2"
+  },
+  "AB_B_L2": {
+   "v": 1.063,
+   "src": "results/ram30b2/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.1_B.p05_by_level.2"
+  },
+  "AB_B_over_A": {
+   "v": 2.128,
+   "src": "derived",
+   "formula": "B/A L1"
+  },
+  "EVICT_pf0.5_ceiling": {
+   "v": 4,
+   "src": "results/reskv/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.5.ceiling_p05"
+  },
+  "EVICT_pf0.7_ceiling": {
+   "v": 4,
+   "src": "results/reskv/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.7.ceiling_p05"
+  },
+  "EVICT_pf0.9_ceiling": {
+   "v": 4,
+   "src": "results/reskv/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf0.9.ceiling_p05"
+  },
+  "EVICT_pf1.0_ceiling": {
+   "v": 12,
+   "src": "results/reskv/p05/p05_ceilings.json",
+   "path": "arms.pinned_pf1.0.ceiling_p05"
+  },
+  "OURS_stream_L1": {
+   "v": 2.123,
+   "src": "results/ram_vs_llama/p05/p05_ceilings.json",
+   "path": "arms.ours_pf.p05_by_level.1"
+  },
+  "OURS_stream_L2": {
+   "v": 0.82,
+   "src": "results/ram_vs_llama/p05/p05_ceilings.json",
+   "path": "arms.ours_pf.p05_by_level.2"
+  },
+  "OURS_stream_L4": {
+   "v": 0.338,
+   "src": "results/ram_vs_llama/p05/p05_ceilings.json",
+   "path": "arms.ours_pf.p05_by_level.4"
+  },
+  "OURS_stream_ceiling": {
+   "v": 0,
+   "src": "results/ram_vs_llama/p05/p05_ceilings.json",
+   "path": "arms.ours_pf.ceiling_p05"
+  },
+  "PRED_static_recall": {
+   "v": 0.244,
+   "src": "results/telemetry/sequence_predictability.json",
+   "path": "static"
+  },
+  "PRED_temporal_recall": {
+   "v": 0.381,
+   "src": "results/telemetry/sequence_predictability.json",
+   "path": "temporal"
+  },
+  "PRED_context_recall": {
+   "v": 0.353,
+   "src": "results/telemetry/sequence_predictability.json",
+   "path": "context"
+  },
+  "PPL_prefix_gate": {
+   "v": "FAIL",
+   "src": "results/rental_instance/p4gate/PPL_OLMoE.json",
+   "path": "gate",
+   "note": "cold-stream used a different math kernel (quantized_matmul); P=0.5 breach"
+  },
+  "PPL_prefix_rel_by_P": {
+   "v": {
+    "0.1": 0.0028,
+    "0.2": 0.0026,
+    "0.4": 0.0035,
+    "0.5": 0.0069,
+    "0.6": 0.0056,
+    "0.8": 0.003
+   },
+   "src": "results/rental_instance/p4gate/PPL_OLMoE.json",
+   "path": "points[*].rel_delta"
+  },
+  "PPL_postfix_gate": {
+   "v": "PASS",
+   "src": "results/rental_instance/p4gate/PPL_OLMoE_POSTFIX2.json",
+   "path": "gate"
+  },
+  "PPL_postfix_rel_by_P": {
+   "v": {
+    "0.1": 0.0041,
+    "0.2": 0.0033,
+    "0.4": 0.0028,
+    "0.5": 0.0035,
+    "0.6": 0.0015,
+    "0.8": 0.0009
+   },
+   "src": "results/rental_instance/p4gate/PPL_OLMoE_POSTFIX2.json",
+   "path": "points[*].rel_delta"
+  },
+  "PPL_postfix_max_rel": {
+   "v": 0.0041,
+   "src": "results/rental_instance/p4gate/PPL_OLMoE_POSTFIX2.json",
+   "formula": "max over P of rel_delta",
+   "note": "0.41% at P=0.1; 0.00% at P=1.0"
+  },
+  "PPL_stock": {
+   "v": 21.4183,
+   "src": "results/rental_instance/p4gate/PPL_OLMoE_POSTFIX2.json",
+   "path": "points.0.ppl_stock"
+  },
+  "G1_OLMoE_pinned_ceiling": {
+   "v": 12,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_olmoe1b7b_distinct.ceiling_p05"
+  },
+  "G1_OLMoE_llama_ceiling": {
+   "v": 8,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_olmoe1b7b_distinct.ceiling_p05"
+  },
+  "G1_OLMoE_pinned_L8": {
+   "v": 25.353,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_olmoe1b7b_distinct.p05_by_level.8"
+  },
+  "G1_OLMoE_llama_L8": {
+   "v": 10.783,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_olmoe1b7b_distinct.p05_by_level.8"
+  },
+  "G1_OLMoE_v2moe_ceiling": {
+   "v": 16,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_olmoe1b7b_v2moe_distinct.ceiling_p05"
+  },
+  "G1_Qwen30_pinned_ceiling": {
+   "v": 4,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_qwen3_30b_distinct.ceiling_p05"
+  },
+  "G1_Qwen30_llama_ceiling": {
+   "v": 4,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_qwen3_30b_distinct.ceiling_p05"
+  },
+  "G1_Qwen30_pinned_L1": {
+   "v": 23.213,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_qwen3_30b_distinct.p05_by_level.1"
+  },
+  "G1_Qwen30_llama_L1": {
+   "v": 43.624,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_qwen3_30b_distinct.p05_by_level.1"
+  },
+  "G1_Moonlight_llama_ceiling": {
+   "v": 4,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.llama_moonlight16b_distinct.ceiling_p05",
+   "note": "pinned BLOCKED (traditional rope, D-025)"
+  },
+  "G1_v3_olmoe_ceiling": {
+   "v": 12,
+   "src": "results/p05_rescore/p05_ceilings.json",
+   "path": "arms.pinned_olmoe1b7b_v3_distinct.ceiling_p05",
+   "note": "interleave v3 == v1 ceiling -> NULL"
+  },
+  "BW_gather_qmm_GBs": {
+   "v": 10.6,
+   "src": "results/BANDWIDTH_ATTRIBUTION.json",
+   "path": "gather_qmm.GBps_vs_intended_bytes"
+  },
+  "BW_per_expert_GBs": {
+   "v": 10.5,
+   "src": "results/BANDWIDTH_ATTRIBUTION.json",
+   "path": "per_expert_qmm.GBps_vs_intended_bytes"
+  },
+  "ATTR_full_step_ms": {
+   "v": 43.43,
+   "src": "results/attribution_qwen.log",
+   "note": "full step ms/tok (line 'A full step')"
+  },
+  "ATTR_attention_pct": {
+   "v": 20.2,
+   "src": "results/attribution_qwen.log",
+   "note": "attention contribution % of step"
+  },
+  "ATTR_moe_pct": {
+   "v": 65.8,
+   "src": "derived",
+   "formula": "(43.43-14.84)/43.43*100 (MoE = full - ablated)"
+  },
+  "ATTR_host_pct": {
+   "v": 7.9,
+   "src": "derived",
+   "formula": "3.43/43.43*100 (skeleton/host)"
+  }
+ },
+ "reconciliations": [
+  "Bandwidth: microbench.log frozen gather_qmm GBps_vs_intended_bytes=10.6 (and 9.6 second run); Sept-25 report '9.5 GB/s' is prose-only \u2014 do not use.",
+  "PPL gate has TWO frozen runs: PPL_OLMoE.json = PRE-FIX (gate FAIL, cold-stream used a different math kernel); PPL_OLMoE_POSTFIX2.json = POST-FIX (gate PASS, max |dPPL| 0.41% at P=0.1, 0.00% at P=1.0). The report's 'passes at <=0.41%' is the CORRECT post-fix figure; do not cite the pre-fix FAIL as the result \u2014 cite it as the caught confound.",
+  ">RAM L1 speed: frozen ram_vs_llama ours_pf p05=2.123 tok/s; D-052 prose '2.32' is a median \u2014 use p05 2.123.",
+  "D-050 A/B/C: frozen ram30b2 p05 A=0.909 B=1.934 C=0.372 (2.1x B/A); report medians 1.14/2.38/0.79 \u2014 p05 is the reported basis.",
+  "Resident growth: frozen union cov95 36.37(k=1)->56.18(k=32)->56.69(k=64); pick ONE wording.",
+  "OLMoE reported on ONE statistic (p05): Gate-1 rental (24GB M4) = 12 vs 8; laptop crossover (16GB M1 Pro) = 16 vs 8. Same rule, different machines. The Sept-26 HW/param '24x/0.8x' and min-based framing are SUPERSEDED \u2014 use p05 and RAM/4bit-GB ratios.",
+  "crossover_lfm2 dirs are a CRASH (steps=0, hybrid conv+attn incompatible) \u2014 NOT a 4th crossover point.",
+  "Qwen3-30B tie (4 vs 4) is on the 24GB M4 rental (cross-machine) \u2014 disclose."
+ ]
+}

@@ -1,0 +1,51 @@
+{
+  "schema": "p05-rescore-v1",
+  "generated": "2026-10-02T23:28:40.732935Z",
+  "slo_floor_tok_s": 10.0,
+  "percentile_method": "linear (numpy-equivalent), pure python",
+  "note": "ceilings from frozen *.requests.jsonl; raw data unmodified",
+  "arms": {
+    "llama_qwen15moe": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16
+      ],
+      "ceiling_p05": 8,
+      "ceiling_median": 8,
+      "ceiling_min": 8,
+      "p05_by_level": {
+        "1": 52.661,
+        "2": 32.058,
+        "4": 22.648,
+        "8": 10.859,
+        "12": 7.937,
+        "16": 6.987
+      }
+    },
+    "pinned_qwen15moe": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 8,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 35.882,
+        "2": 30.131,
+        "4": 21.59,
+        "8": 8.124,
+        "12": 5.066,
+        "16": 5.348
+      }
+    }
+  }
+}

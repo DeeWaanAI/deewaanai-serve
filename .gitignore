@@ -1,0 +1,32 @@
+# Never commit secrets or large/derived binaries.
+.env
+*.env
+keys/
+*.pem
+*.key
+secrets/
+
+# Model weights and slabs — NOT redistributed (pull your own; see README).
+models/
+*.gguf
+*.safetensors
+*.metallib
+*.bin
+*.npz
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+venv_*/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Local run artifacts (keep frozen result JSON; ignore bulky logs if needed)
+*.log

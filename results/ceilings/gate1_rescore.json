@@ -1,0 +1,206 @@
+{
+  "schema": "p05-rescore-v1",
+  "generated": "2026-09-27T12:59:14.695231Z",
+  "slo_floor_tok_s": 10.0,
+  "percentile_method": "linear (numpy-equivalent), pure python",
+  "note": "ceilings from frozen *.requests.jsonl; raw data unmodified",
+  "arms": {
+    "llama_moonlight16b_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 48.427,
+        "2": 30.12,
+        "4": 14.951,
+        "8": 7.552
+      }
+    },
+    "llama_olmoe1b7b_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 8,
+      "ceiling_median": 8,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 64.992,
+        "2": 41.006,
+        "4": 21.491,
+        "8": 10.783
+      }
+    },
+    "llama_olmoe1b7b_v2moe_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12
+      ],
+      "ceiling_p05": 8,
+      "ceiling_median": 12,
+      "ceiling_min": 8,
+      "p05_by_level": {
+        "1": 65.096,
+        "2": 40.865,
+        "4": 21.492,
+        "8": 10.662,
+        "12": 8.334
+      }
+    },
+    "llama_qwen3_30b_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 43.624,
+        "2": 26.986,
+        "4": 14.468,
+        "8": 7.706
+      }
+    },
+    "pinned_olmoe1b7b_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12
+      ],
+      "ceiling_p05": 12,
+      "ceiling_median": 12,
+      "ceiling_min": 8,
+      "p05_by_level": {
+        "1": 123.568,
+        "2": 67.11,
+        "4": 38.042,
+        "8": 25.353,
+        "12": 14.489
+      }
+    },
+    "pinned_olmoe1b7b_v2moe_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16
+      ],
+      "ceiling_p05": 16,
+      "ceiling_median": 16,
+      "ceiling_min": 12,
+      "p05_by_level": {
+        "1": 124.934,
+        "2": 66.821,
+        "4": 38.064,
+        "8": 25.484,
+        "12": 18.053,
+        "16": 10.153
+      }
+    },
+    "pinned_olmoe1b7b_v3_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12
+      ],
+      "ceiling_p05": 12,
+      "ceiling_median": 12,
+      "ceiling_min": 8,
+      "p05_by_level": {
+        "1": 124.187,
+        "2": 67.09,
+        "4": 38.139,
+        "8": 16.135,
+        "12": 12.182
+      }
+    },
+    "pinned_qwen3_30b_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 23.213,
+        "2": 16.826,
+        "4": 11.025,
+        "8": 6.9
+      }
+    },
+    "pinned_qwen3_30b_v2_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 23.154,
+        "2": 16.812,
+        "4": 11.086,
+        "8": 6.734
+      }
+    },
+    "pinned_qwen3_30b_v2moe_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 23.2,
+        "2": 17.033,
+        "4": 11.046,
+        "8": 6.818
+      }
+    },
+    "pinned_qwen3_30b_v3_distinct": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 23.172,
+        "2": 16.863,
+        "4": 11.06,
+        "8": 6.762
+      }
+    }
+  }
+}

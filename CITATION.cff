@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use DeeWaanAI Serve, please cite the accompanying paper."
+title: "When Pinning Pays: A Measured Crossover Curve and a Feasibility Result for Mixture-of-Experts Serving on Consumer Unified Memory"
+type: paper
+authors:
+  - family-names: Hariri
+    given-names: Youssef
+    orcid: "https://orcid.org/0009-0009-5374-586X"
+repository-owner:
+  name: "Mug and Bewong Ltd"
+  address: "20 Wenlock Road, London, N1 7GU, United Kingdom"
+  city: London
+  country: GB
+  type: company
+date-released: 2026-10-06
+repository-code: "https://github.com/DeeWaanAI/deewaanai-serve"
+url: "https://github.com/DeeWaanAI/deewaanai-serve"
+license: AGPL-3.0-only
+keywords:
+  - mixture-of-experts
+  - LLM inference
+  - Apple Silicon
+  - MLX
+  - serving
+doi: "10.5281/zenodo.23182261"

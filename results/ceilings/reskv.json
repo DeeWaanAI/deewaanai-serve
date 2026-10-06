@@ -1,0 +1,109 @@
+{
+  "schema": "p05-rescore-v1",
+  "generated": "2026-10-04T15:07:05.291294Z",
+  "slo_floor_tok_s": 10.0,
+  "percentile_method": "linear (numpy-equivalent), pure python",
+  "note": "ceilings from frozen *.requests.jsonl; raw data unmodified",
+  "arms": {
+    "pinned_pf0.5": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16,
+        24,
+        32
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 19.044,
+        "2": 13.046,
+        "4": 10.2,
+        "8": 7.956,
+        "12": 4.818,
+        "16": 5.197,
+        "24": 3.786,
+        "32": 1.459
+      }
+    },
+    "pinned_pf0.7": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16,
+        24,
+        32
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 4,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 20.385,
+        "2": 15.419,
+        "4": 11.506,
+        "8": 8.056,
+        "12": 6.274,
+        "16": 4.576,
+        "24": 4.146,
+        "32": 1.827
+      }
+    },
+    "pinned_pf0.9": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16,
+        24,
+        32
+      ],
+      "ceiling_p05": 4,
+      "ceiling_median": 12,
+      "ceiling_min": 4,
+      "p05_by_level": {
+        "1": 21.096,
+        "2": 14.378,
+        "4": 16.355,
+        "8": 8.006,
+        "12": 8.538,
+        "16": 7.265,
+        "24": 3.349,
+        "32": 2.403
+      }
+    },
+    "pinned_pf1.0": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8,
+        12,
+        16,
+        24,
+        32
+      ],
+      "ceiling_p05": 12,
+      "ceiling_median": 16,
+      "ceiling_min": 12,
+      "p05_by_level": {
+        "1": 117.709,
+        "2": 59.204,
+        "4": 34.924,
+        "8": 16.301,
+        "12": 12.701,
+        "16": 6.851,
+        "24": 3.644,
+        "32": 3.122
+      }
+    }
+  }
+}

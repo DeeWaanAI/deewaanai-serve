@@ -1,0 +1,49 @@
+{
+ "schema": "gate1-fig-data-v1",
+ "source": "results/derived/paper_headline_numbers.json",
+ "figF_ceilings": {
+  "models": [
+   "OLMoE-1B-7B",
+   "Qwen3-30B-A3B",
+   "Moonlight-16B"
+  ],
+  "pinned": [
+   12,
+   4,
+   0
+  ],
+  "llama": [
+   8,
+   4,
+   4
+  ],
+  "moonlight_pinned": "blocked (traditional rope)"
+ },
+ "figG_ppl_pct": {
+  "P": [
+   0.1,
+   0.2,
+   0.4,
+   0.5,
+   0.6,
+   0.8
+  ],
+  "post_fix": [
+   0.41,
+   0.33,
+   0.28,
+   0.35,
+   0.15,
+   0.09
+  ],
+  "pre_fix": [
+   0.28,
+   0.26,
+   0.35,
+   0.69,
+   0.56,
+   0.3
+  ],
+  "band": 0.5
+ }
+}

@@ -1,0 +1,92 @@
+{
+  "static": 0.2442,
+  "temporal": 0.3806,
+  "context": 0.3534,
+  "semantic_within_jaccard": 0.5603,
+  "semantic_across_jaccard": 0.545,
+  "per_layer": {
+    "0": {
+      "static": 0.2655,
+      "context": 0.3167,
+      "temporal": 0.3069
+    },
+    "1": {
+      "static": 0.2242,
+      "context": 0.2837,
+      "temporal": 0.2978
+    },
+    "2": {
+      "static": 0.2299,
+      "context": 0.3259,
+      "temporal": 0.3671
+    },
+    "3": {
+      "static": 0.227,
+      "context": 0.3387,
+      "temporal": 0.3805
+    },
+    "4": {
+      "static": 0.2633,
+      "context": 0.3702,
+      "temporal": 0.4408
+    },
+    "5": {
+      "static": 0.2352,
+      "context": 0.3746,
+      "temporal": 0.4406
+    },
+    "6": {
+      "static": 0.284,
+      "context": 0.4047,
+      "temporal": 0.4524
+    },
+    "7": {
+      "static": 0.2489,
+      "context": 0.3694,
+      "temporal": 0.4389
+    },
+    "8": {
+      "static": 0.2423,
+      "context": 0.3551,
+      "temporal": 0.4018
+    },
+    "9": {
+      "static": 0.2235,
+      "context": 0.3193,
+      "temporal": 0.3497
+    },
+    "10": {
+      "static": 0.2045,
+      "context": 0.2979,
+      "temporal": 0.3136
+    },
+    "11": {
+      "static": 0.2506,
+      "context": 0.3542,
+      "temporal": 0.379
+    },
+    "12": {
+      "static": 0.2479,
+      "context": 0.3462,
+      "temporal": 0.3583
+    },
+    "13": {
+      "static": 0.2358,
+      "context": 0.3828,
+      "temporal": 0.3796
+    },
+    "14": {
+      "static": 0.2686,
+      "context": 0.3945,
+      "temporal": 0.3805
+    },
+    "15": {
+      "static": 0.2557,
+      "context": 0.4207,
+      "temporal": 0.4027
+    }
+  },
+  "n_prompts": 200,
+  "n_layers": 16,
+  "K": 8
+}

@@ -1,0 +1,26 @@
+{
+  "schema": "p05-rescore-v1",
+  "generated": "2026-10-04T17:03:17.613202Z",
+  "slo_floor_tok_s": 10.0,
+  "percentile_method": "linear (numpy-equivalent), pure python",
+  "note": "ceilings from frozen *.requests.jsonl; raw data unmodified",
+  "arms": {
+    "ours_pf": {
+      "levels_tested": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "ceiling_p05": 0,
+      "ceiling_median": 0,
+      "ceiling_min": 0,
+      "p05_by_level": {
+        "1": 2.123,
+        "2": 0.82,
+        "4": 0.338,
+        "8": 0.187
+      }
+    }
+  }
+}

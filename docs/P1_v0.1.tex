@@ -1,0 +1,778 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{siunitx}
+\usepackage{url}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=blue]{hyperref}
+
+\graphicspath{{../results/crossover/figures/}{../results/crossover_qwen15/}{../results/pinfraction/}{../results/crossover/}{../results/gate1_figures/}}
+
+\newcommand{\ppl}{\ensuremath{\times}}
+\emergencystretch=2.2em
+
+\title{\textbf{When Pinning Pays: A Measured Crossover Curve and a Feasibility\\
+Result for Mixture-of-Experts Serving on Consumer Unified Memory}}
+\author{Youssef Hariri\\ DeeWaanAI\\ \texttt{ORCID 0009-0009-5374-586X}}
+\date{Preprint --- October 2026\\ \small All reported numbers are frozen and claim-to-evidence traceable (Appendix~A).}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Mixture-of-Experts (MoE) language models are attractive on consumer hardware because
+each token activates only a small slice of the weights, yet the full weight set must
+still be resident or streamed. We study \emph{pinned-expert orchestration}---keeping a
+traffic-ranked subset of experts resident in unified memory, dispatching via a gather
+kernel, and streaming cold experts from disk with continuous batching---against the
+de-facto local-inference incumbent, llama.cpp, on Apple Silicon. We report a single
+controlled study read at opposite ends of the device-RAM-to-model-size ratio, using a
+tail-latency metric (the 5th-percentile per-user decode throughput, p05, against a
+\SI{10}{tok/s} service-level floor) and same-machine uncensored concurrency ceilings.
+In the fits-RAM regime, pinning serves up to \textbf{$2\ppl$ the concurrent users} of
+llama.cpp, but \emph{only} when the model is a small fraction of RAM: a $2.0\ppl$ win at
+a $3.8\ppl$ RAM/4-bit-GB ratio (OLMoE-1B-7B, 16 vs.\ 8 users), reversing to $0.5\ppl$ at
+$1.8\ppl$ (Qwen1.5-MoE) and to a $1.0\ppl$ tie at $0.9\ppl$ (Qwen3-30B-A3B). Router
+telemetry explains the bound: cross-request overlap is high (median pairwise Jaccard
+$0.593$), the resident expert set grows sub-linearly with concurrency (36.4 to $56.2$ of
+64 experts for 95\% batch coverage), and a single request already touches
+$45.2/64=70.6\%$ of the pool---there is no small hot set to pin, capping the win near
+$2\ppl$ and collapsing it as coverage exceeds RAM. In the beyond-RAM regime we find a
+\emph{feasibility} rather than speed result: llama.cpp's Metal path cannot load an 18\,GB
+model on a 16\,GB Mac (GPU out-of-memory), whereas our engine streams it at
+${\approx}\SI{2.1}{tok/s}$. Streaming is a cliff, not a slope---only full residency is
+usable without assistance---but within-step \emph{parallel} input/output prefetch turns
+the cliff into a slope ($2.1\ppl$ single-user speedup on the real >RAM model). Two
+hypotheses are refuted on single-SSD consumer hardware: \emph{predictive} prefetch
+($0.372$ vs.\ $0.909$ tok/s serial) and trading expert residency for key-value capacity
+(p05 ceiling drops $12\!\to\!4$). We position the system against the 2025--26
+working-set and prefetch literature and state plainly which mechanisms we have
+implemented and which we have not. A prior 24-hour campaign on a rented 24\,GB Mac
+(Section~\ref{sec:gate1}) established that streaming preserves output quality (perplexity
+within $0.41\%$ once a kernel-parity confound was fixed), located the single-user ceiling
+in memory-read bandwidth, and ruled out a custom-kernel path---redirecting the programme
+to orchestration. Every number traces to a frozen artifact via a
+committed, self-verifying extraction script.
+\end{abstract}
+
+\section{Introduction}
+
+Mixture-of-Experts models decouple parameter count from per-token compute: a
+$30$B-parameter model may activate only $3$B parameters per token. On memory-constrained
+consumer hardware---laptops and small servers with unified memory and a single NVMe
+drive---this sparsity is the only reason a large model can be served at all. The
+practical question for a systems builder is not ``can it fit'' but ``how many
+concurrent users can it serve, and can it serve a model that does not fit?''
+
+We built a \emph{pinned-expert orchestration engine} on top of the stock
+\texttt{mlx\_lm} model implementation for Apple Silicon: we swap only the
+MoE feed-forward dispatch, keeping attention, embeddings, and the router untouched, and
+compare against llama.cpp (\texttt{llama-server}), the incumbent tool that practitioners
+actually run. Our evaluation is deliberately conservative: a per-user tail statistic
+(p05) rather than an aggregate, same-machine ratios rather than absolute throughput,
+uncensored ceilings (run to failure) rather than the highest level we happened to test,
+and fidelity gates passed before any concurrency claim is trusted.
+
+The paper makes four contributions, each proven in the body and traceable in
+Appendix~A.
+\begin{enumerate}[leftmargin=1.7em,itemsep=1pt,topsep=3pt]
+  \item \textbf{A measured crossover curve} (Section~\ref{sec:crossover}) for MoE serving
+        on M-series unified memory under a per-user SLO floor, spanning three current
+        models and $3.8\ppl$ to $0.9\ppl$ RAM-to-model ratios. To our knowledge this
+        crossover is not reported in the prior literature (Section~\ref{sec:related}).
+  \item \textbf{A measured mechanism} (Section~\ref{sec:mechanism}) for the bound: the
+        sub-linear growth of the resident expert set amortises across concurrent users,
+        while routing skew caps the win near $2\ppl$.
+  \item \textbf{A >RAM feasibility result} (Section~\ref{sec:beyond}), together with the
+        $2.1\ppl$ within-step parallel-prefetch win that makes streaming usable.
+  \item \textbf{Three disciplined negative results}---predictive prefetch,
+        residency-for-KV eviction, and a custom Python/MLX gather kernel
+        (Appendix~C)---reported as negatives, plus the methodological spine
+        (Section~\ref{sec:method}) that keeps them honest.
+\end{enumerate}
+
+Section~\ref{sec:gate1} first reports the exploratory rental campaign that generated these
+hypotheses; Sections~\ref{sec:crossover} and~\ref{sec:beyond} then test them under tighter
+control. All concurrency results---rental and laptop---are reported on one p05 statistic.
+
+\paragraph{Scope and non-claims.} We do \emph{not} claim single-stream speed superiority
+(llama.cpp is faster per user on Qwen3-30B). We do \emph{not} claim a concurrency win in
+the >RAM regime (both engines are below the SLO floor there; the claim is feasibility).
+We report same-machine \emph{ratios}; absolute tok/s differ across chips. The custom
+gather kernel is a negative result, not the mechanism behind our wins, which come from
+the standard \texttt{mx.gather\_qmm} path.
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Working-set and memory-bounded MoE serving.} A 2025--26 line treats MoE
+inference as a bounded-working-set problem. WiSP (arXiv:2606.21868) analyses
+low-resource MoE serving and shows static layer offload forfeits the sparsity advantage;
+MawForge (arXiv:2607.09686) keeps common tensors resident and materialises routed
+experts into a bounded cache; fine-grained expert offloading targets the
+latency--memory trade-off (arXiv:2502.05370); and DuoServe-MoE (arXiv:2509.07379)
+splits a dense-prefill / sparse-decode schedule. Our fits-RAM crossover is the
+empirical, ratio-swept complement that these designs assume but rarely report.
+
+\paragraph{Predictive prefetch and scheduling.} SpecPrefetch (arXiv:2607.24787)
+predicts next-layer experts with a parameter-efficient head while keeping the native
+router authoritative---exactly the safety property we adopt for our (non-predictive)
+prefetch. ExpertFlow (DAC'26) and Edge0 are industry/open-source systems reporting large
+speedups and sub-RAM serving of $35$B models; we cite them as design points, flagging
+that no confirmed arXiv identifier is available for ExpertFlow and that Edge0 is a
+project rather than a paper. Klotski (arXiv:2502.06888) groups rows that share experts
+to amortise I/O. Section~\ref{sec:beyond} reports our careful negative: on a single SSD,
+\emph{prediction} does not pay because \emph{parallelism} already captures the overlap.
+
+\paragraph{Cache-aware routing.} Mixture of Cache-Conditional Experts
+(arXiv:2412.00099) retrains the router to prefer resident experts; ``Cacheable by
+Design?'' (arXiv:2608.18261) is a pre-registered \emph{negative} showing a batch
+scheme collapsing at batch~32 from paging thrash. We implement neither cache-aware
+routing nor token scheduling; our engine is closer to the baseline these systems
+improve on.
+
+\paragraph{KV--expert contention.} The \emph{qs} inequality (arXiv:2603.08960)
+formalises the double penalty we observe empirically---routing fragments reuse, and a
+large resident expert pool starves KV headroom. It is the natural frame for our
+OLMoE-win / Qwen-loss swing and, in Section~\ref{sec:beyond}, for why trading experts
+for KV backfires.
+
+\paragraph{Measurement.} Tail-fairness work (FairBatching arXiv:2510.14392, Niyama
+arXiv:2503.22762, SLO-aware sliding-window arXiv:2606.05933) motivates reporting a
+low-percentile ceiling rather than an aggregate mean. Roofline analyses
+(arXiv:2605.30571) warn that batch-1 decode is memory-bound but not purely
+bandwidth-limited; we therefore compare engines to each other, not to theoretical peak.
+
+\paragraph{Apple-Silicon-specific.} NPU MoE serving (arXiv:2604.18788) and multi-node
+expert parallelism (arXiv:2506.23635) characterise M-series inference. None reports a
+RAM/model-size crossover curve or a >RAM concurrency/feasibility result on M-series
+unified memory under a per-user SLO floor---the gap this paper owns.
+
+\section{System, Metric, and Method}
+\label{sec:method}
+
+\subsection{System under test}
+The backbone is a stock \texttt{mlx\_lm} model; we replace only the MoE block
+(\texttt{switch\_mlp}/SwitchGLU) with a \texttt{PinnedSwitchMLP}: a resident stack of
+hot experts plus a gather-QMM dispatch, with cold experts streamed from per-expert
+on-disk ``slabs.'' The MLX 4-bit checkpoints already store routed experts in the
+engine's layout (packed uint32 with float scales and biases, group~64, affine), so slabs
+are extracted \emph{verbatim} with no re-quantisation (\texttt{extract\_mlx\_experts.py}).
+Continuous batching uses a ``world-coordinate'' rope-shift trick that lets multiple
+sequences share one batch without altering relative positions. The baseline is
+\texttt{llama-server}.
+
+\subsection{Metric: p05 concurrency ceiling}
+Our primary metric is the \textbf{p05 concurrency ceiling}: the largest number of
+simultaneous users for which the 5th-percentile per-user decode throughput remains at or
+above a \SI{10}{tok/s} floor. We choose p05 over the minimum (a single straggler request
+mis-ranks arms) and over the median (which overstates the tail). Percentiles use linear
+interpolation (numpy-equivalent). Ceilings are \textbf{uncensored}: every arm is run to
+failure so a ceiling is never truncated by the top tested level. All arms on a machine
+share an identical per-user context budget, identical prompts and repetitions, and the
+same quantisation; llama.cpp is given enough parallel slots that it is not artificially
+queue-capped.
+
+\subsection{Fidelity gates}
+Before any ceiling is trusted we require: (i)~\emph{synthetic equivalence}---the
+\texttt{PinnedSwitchMLP} reproduces stock \texttt{SwitchGLU} bit-exactly at each model's
+dimensions in decode and prefill regimes (\texttt{switch\_equiv\_gate.py}); (ii)~\emph{end-to-end greedy
+match}---stock generation versus pinned-fully-resident is token-identical on real weights
+(\texttt{lfm2\_e2e\_equiv.py}); and (iii)~a \emph{perplexity gate} on the frozen corpus,
+reported in Section~\ref{sec:fidelity}. Prefetch correctness is additionally gated to a
+byte-identical SHA (\texttt{prefetch\_equiv\_test.py}).
+
+\subsection{Corpus and reproducibility}
+Traces and perplexity use a frozen WildChat-3k subset (SHA-256 recorded in
+\texttt{results/corpus}). Raw run outputs are hash-frozen (\texttt{FROZEN\_MANIFEST.json}).
+The paper's quantitative spine is produced by a single committed, self-verifying script
+(\texttt{code/paper/extract\_headline\_numbers.py}) that reads only frozen files and
+emits \texttt{results/derived/paper\_headline\_numbers.json}; a $52$-entry decision log
+(\texttt{DECISIONS.md}) records every design and correction (Appendix~A).
+
+\subsection{Harness validation (Stage-0)}
+The harness itself is validated before use: on the resident reference configuration the
+prompt-processing rate is $1261.4\pm39.5$ tok/s and generation is $132.1\pm0.2$ tok/s
+against a $\ge 66.0$ gate, with $5/5$ arm parity---establishing that later concurrency
+differences are attributable to the engine under test, not to measurement noise.
+
+\section{Gate-1: Exploratory Campaign on a Rented 24 GB Mac}
+\label{sec:gate1}
+
+Before the two controlled laptop studies we ran a 24-hour exploratory campaign on a
+rented AWS Mac (M4, 24\,GB unified memory) to learn the shape of the problem. It is a
+\emph{hypothesis-generating} study, not a confirmation. Its concurrency ceilings are
+re-scored here under the \emph{same} p05 rule used everywhere else in this paper (raw
+request logs preserved), so the whole paper reports one statistic across both machines;
+where the original on-box write-ups differed, we defer to the re-scored data. The
+campaign's lasting value is in results a 16\,GB laptop cannot reproduce.
+
+\subsection{Multi-user serving across three models (v1)}
+Table~\ref{tab:gate1} gives the rental ceilings. OLMoE, which fits with headroom, is the
+first win: 12 users versus llama.cpp's 8, with a far tighter tail (the p05 user still
+gets $25.4$ tok/s at 8 concurrent versus $10.8$ for llama.cpp). Qwen3-30B-A3B, near
+capacity, is the first honest \emph{loss}: both arms ceiling at 4, but llama.cpp is
+${\approx}1.9\ppl$ faster per single user ($43.6$ vs.\ $23.2$ tok/s). Moonlight-16B
+(DeepSeek lineage) uses traditional RoPE, which our batch-attach path does not support;
+the engine \emph{refuses to run} rather than risk silently wrong output, so there is no
+contest on that model.
+
+\begin{table}[t]
+\centering
+\caption{Gate-1 rental (24\,GB M4), re-scored at p05 above the \SI{10}{tok/s} floor,
+uncensored. Same statistic as Sections~\ref{sec:crossover}--\ref{sec:beyond}.}
+\label{tab:gate1}
+\small
+\begin{tabular}{llccc}
+\toprule
+Model & Status & Pinned & llama & Note \\
+\midrule
+OLMoE-1B-7B     & fits w/ headroom & \textbf{12} & 8  & p05 user $25.4$ vs $10.8$ tok/s at $N{=}8$ \\
+Qwen3-30B-A3B   & near capacity    & 4  & 4  & llama faster per user: $43.6$ vs $23.2$ at $N{=}1$ \\
+Moonlight-16B   & architecture     & \emph{blocked} & 4 & traditional rope; fail-closed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.72\linewidth]{figF_gate1_ceilings.png}
+\caption{Gate-1 rental (24\,GB M4) p05 concurrency ceilings, re-scored on the same
+statistic as the laptop studies. Ours wins on the fitting model, ties on the near-capacity
+model, and cannot be run on the traditional-rope model (fail-closed).}
+\label{fig:gate1}
+\end{figure}
+
+\subsection{Two speed attempts, both null (v2, v3)}
+We tried to close the single-user gap two ways and neither worked. Compiling the expert
+math with \texttt{mx.compile} (v2) produced bit-exact output but a $\le 2\%$ performance
+change---a null (D-024). Capping prefill bursts to protect the tail (v3) left the p05
+ceiling unchanged at 12, identical to v1---also a null on natural traffic. These negatives
+matter: they told us the gap was not software-language overhead, motivating the
+attribution below.
+
+\subsection{Routing is nearly flat (the headliner finding)}
+Expert-activation traces on the frozen corpus showed routing is close to uniform: mean
+Zipf $\alpha\approx0.44$ and the top-10 experts carry only 15--30\% of visits. This
+weakened the ``pin a small hot set'' premise and is the mechanistic reason the crossover
+advantage is bounded near $2\ppl$ (quantified independently on the laptop in
+Section~\ref{sec:mechanism}).
+
+\subsection{Streaming preserves quality --- after we fixed a confound}
+\label{sec:gate1ppl}
+We validated streamed cold experts against resident ones with a perplexity gate
+($|\Delta\text{PPL}|/\text{PPL}_{\text{stock}} \le 0.5\%$ at \emph{every} residency
+fraction). The \emph{first} run \textbf{failed}, and the failure was informative: the
+cold-stream path used a \emph{different math kernel} than the resident stack, so the
+perplexity drifted ($0.69\%$ at half residency). Restoring kernel parity (D-029
+$\rightarrow$ D-032) turned the gate green (Table~\ref{tab:ppl}): the maximum relative
+change is $0.41\%$ at 10\% residency, improving monotonically to $0.09\%$ at 80\% and
+exactly $0.00\%$ at full residency. Two notes of honesty: this gate was run on a model
+that \emph{fits} memory (varying residency via pin-fraction), so it establishes
+streamed-equals-resident equivalence rather than >RAM fidelity; and the earlier
+perplexity breach is retained above as the caught confound, not quietly dropped.
+
+\begin{table}[t]
+\centering
+\caption{OLMoE perplexity gate on the rental, frozen corpus
+($\text{PPL}_{\text{stock}}=21.4183$). \textbf{Post-fix} (kernel-parity restored) is the
+reported result; the \textbf{pre-fix} run used a mismatched cold-stream kernel and
+breached the band at $P=0.5,0.6$.}
+\label{tab:ppl}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+Resident $P$ & 0.1 & 0.2 & 0.4 & 0.5 & 0.6 & 0.8 \\
+\midrule
+Post-fix PPL     & 21.505 & 21.489 & 21.478 & 21.493 & 21.451 & 21.438 \\
+Post-fix $|\Delta|$ & 0.41\% & 0.33\% & 0.28\% & 0.35\% & 0.15\% & 0.09\% \\
+Pre-fix $|\Delta|$  & 0.28\% & 0.26\% & 0.35\% & \textbf{0.69\%} & \textbf{0.56\%} & 0.30\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.74\linewidth]{figG_perplexity_gate.png}
+\caption{Streaming fidelity gate. The pre-fix run (mismatched cold-stream kernel) breaches
+the $0.5\%$ band at $P=0.5,0.6$; restoring kernel parity (post-fix) keeps every fraction
+inside it, with a maximum of $0.41\%$ at $10\%$ residency.}
+\label{fig:ppl}
+\end{figure}
+
+\subsection{The bottleneck is memory reads, not the language (v2/v3 aftermath)}
+\label{sec:gate1diag}
+A decode-attribution probe on Qwen3-30B put a full step at $43.4$\,ms/token, split
+${\approx}66\%$ expert compute, ${\approx}20\%$ attention, and ${\approx}8\%$ host/Python
+overhead---ruling out the interpreter as the lever. A bandwidth microbenchmark measured
+the gather path at ${\approx}10.6$\,GB/s on the intended-bytes basis, well short of the
+chip's ceiling. The tempting fix---a hand-written vectorised gather---proved \textbf{33\ppl
+slower} (Appendix~C): kernel fusion, not Python-level vectorisation, governs the per-token
+floor. That cheap measurement redirected the whole programme away from custom kernels and
+toward \emph{orchestration}, which is what the two controlled studies that follow test.
+
+\paragraph{From Gate-1 to this paper.} The rental gave the crossover its first shape
+(a win on the fitting model, a tie/loss on the larger one), the quality gate, the
+flat-routing mechanism, and the bandwidth verdict. It left the concurrency ceiling
+imprecise and the >RAM regime untested; Sections~\ref{sec:crossover} and~\ref{sec:beyond}
+supply the uncensored p05 crossover, the >RAM feasibility result, and the corrected
+numbers, on one statistic throughout.
+
+\section{Experiment I --- The Concurrency Crossover}
+\label{sec:crossover}
+
+\subsection{Design}
+For each model we run pinned and llama.cpp arms on the \emph{same} machine, fixed
+per-user context, five shared prompts, repeated runs, uncensored, and re-score all
+frozen request logs at p05. Table~\ref{tab:crossover} reports the concurrency ceiling as
+a function of the RAM-to-model ratio (device RAM divided by the model's 4-bit footprint).
+
+\begin{table}[t]
+\centering
+\caption{p05 concurrency ceilings above a \SI{10}{tok/s} per-user floor, uncensored.
+Ratio $=$ device RAM $\div$ model 4-bit size. Two points on a 16\,GB M1 Pro laptop; the
+$0.9\ppl$ point on a 24\,GB EC2 Mac~M4 (cross-machine, disclosed).}
+\label{tab:crossover}
+\small
+\begin{tabular}{llccccc}
+\toprule
+Model & Provider & 4-bit & RAM/Ratio & Pinned & llama & Advantage \\
+\midrule
+OLMoE-1B-7B          & AI2     & 4.2\,GB & 16\,GB / $3.8\ppl$ & \textbf{16} & 8 & $\mathbf{2.0}\ppl$ win \\
+Qwen1.5-MoE-A2.7B    & Alibaba & 8.8\,GB & 16\,GB / $1.8\ppl$ & \textbf{4}  & 8 & $\mathbf{0.5}\ppl$ loss \\
+Qwen3-30B-A3B        & Alibaba & 18\,GB  & 24\,GB / $0.9\ppl$ & \textbf{4}  & 4 & $\mathbf{1.0}\ppl$ tie \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Result}
+Pinning wins---but only at high ratio. On OLMoE ($3.8\ppl$) it doubles the concurrent
+users (16 vs.\ 8). By $1.8\ppl$ (Qwen1.5-MoE) the advantage is gone and mildly reverses
+(4 vs.\ 8); at $0.9\ppl$ (Qwen3-30B) both arms ceiling at 4. Figure~\ref{fig:curve}
+summarises advantage against ratio.
+
+The per-user detail (Table~\ref{tab:olmoelevels}) shows the signature: llama.cpp is
+roughly $2\ppl$ faster per user at 1--2 users (p05 64.7 vs.\ 34.0 tok/s at concurrency~1)
+but its tail collapses below the floor by 12 users, while pinned holds $\ge$\SI{10}{tok/s}
+to 16. We lose single-stream speed and win concurrency---at high ratio only.
+
+\begin{table}[t]
+\centering
+\caption{OLMoE per-level p05 tok/s (same-machine, 16\,GB). Bold marks levels meeting the
+\SI{10}{tok/s} floor; llama fails first.}
+\label{tab:olmoelevels}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+Users $N$          & 1      & 4      & 8      & 12     & 16     & 24 \\
+\midrule
+llama.cpp p05 & \textbf{64.7} & \textbf{22.5} & \textbf{11.0} & 8.1 & 6.2 & 4.2 \\
+Pinned p05    & \textbf{34.0} & \textbf{21.0} & \textbf{12.3} & \textbf{13.3} & \textbf{10.7} & 6.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.72\linewidth]{figC.png}
+\caption{Advantage versus RAM/model ratio (three frozen points). The benefit is present
+only above roughly a $2\ppl$--$3\ppl$ ratio and vanishes as the model approaches RAM.}
+\label{fig:curve}
+\end{figure}
+
+\subsection{Mechanism}
+\label{sec:mechanism}
+We traced 400 WildChat prompts through OLMoE's router (64 experts per layer, top-8, 16
+layers). The concurrency win is the sub-linear growth of the resident set that covers a
+fixed fraction of batch traffic; the ~2\ppl\ cap is the routing skew.
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt,topsep=2pt]
+  \item \textbf{High cross-request overlap.} Median pairwise Jaccard of the activated
+        expert sets is $0.593$ (over 19{,}949 pairs), so concurrent users reuse experts
+        heavily and a fixed resident set amortises across them---this \emph{is} the win.
+  \item \textbf{Sub-linear resident growth.} Experts needed to cover 95\% of a batch's
+        traffic grow from $36.4$ (1 user) to $56.2$ (32 users) and $56.7$ (64), of 64; at
+        90\% coverage, $31.2$ to $50.7$. Growth is flat because overlap is high.
+  \item \textbf{Mild routing skew caps the win.} A \emph{single} request already touches
+        $45.2/64 = 70.6\%$ of the pool---there is no tiny hot set to pin, so the benefit
+        saturates near $2\ppl$. Per-layer routing is near-uniform (entropy $5.86$ of $6.0$
+        bits, mean Zipf $\alpha=0.44$, mean top-10 coverage $28.3\%$).
+  \item \textbf{Why it dies on bigger models.} On Qwen3-30B (128 experts $\times$ 48
+        layers) the coverage set at useful concurrency exceeds RAM, so the resident set
+        cannot amortise and the advantage vanishes.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\linewidth]{figB.png}
+\caption{Resident expert-set growth versus concurrency (OLMoE, 400 prompts).
+Sub-linear growth enables amortisation; the high starting point reflects routing skew.}
+\label{fig:growth}
+\end{figure}
+
+\subsection{Confounds, stated plainly}
+The Qwen1.5-MoE ``loss'' at $1.8\ppl$ mixes the memory-ratio effect with our engine's
+lower, noisier per-user throughput at that model's dimensions (60 experts $\times$ 24
+layers) plus reduced KV headroom from a ${\sim}$7\,GB resident set. The \emph{direction}
+(advantage gone by ${\sim}1.8\ppl$) is robust; the \emph{exact threshold} is not pinned,
+because our 4-bit-only engine cannot sweep a single model's footprint cleanly on a 16\,GB
+machine. We deliberately do not report a precise crossover ratio.
+
+\paragraph{Strategic implication.} Choose a MoE whose 4-bit footprint is a small
+fraction ($\lesssim 1/4$) of unified RAM. At $3.8\ppl$ you roughly double served users;
+below ${\sim}2\ppl$ expect no concurrency benefit from pinning.
+
+\section{Experiment II --- Serving Models Bigger Than RAM}
+\label{sec:beyond}
+
+\subsection{Setup and subject selection}
+We flip to the business-relevant regime: a model larger than device RAM. Subject
+selection filters on \emph{active} parameters, not footprint---a $>RAM$ model is only
+streamable if few parameters activate per token. We use Qwen3-30B-A3B (18\,GB $>16$\,GB,
+$3$B active) as the reference; Mixtral-8x7B (13\,B active) was downloaded, gated
+synthetically, and discarded as a poor subject (its active compute makes streaming
+unusable on laptop SSD)---kept as a negative data point, not a result.
+
+\subsection{Streaming is a cliff, not a slope}
+Holding model, hardware, and engine fixed and varying only the resident-expert fraction
+(Table~\ref{tab:cliff}), per-user throughput barely improves from 40\% to 80\% residency
+($4.55$, $3.64$, $7.42$ tok/s at 1 user; ceiling~0 in every case) and jumps to $105.7$
+tok/s (ceiling~12) only at full residency. The cause is synchronous, serial
+cold-load latency: each streamed expert is a blocking disk read. This is the wall any
+>RAM system must break.
+
+\begin{table}[t]
+\centering
+\caption{OLMoE pin-fraction sweep, 16\,GB. ``No prefetch'' is serial cold loading;
+``$+$parallel prefetch'' overlaps a step's cold reads (output-neutral, SHA-identical).
+Values are p05 at concurrency~1 (tok/s) and the p05 ceiling.}
+\label{tab:cliff}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{No prefetch} & \multicolumn{3}{c}{Parallel prefetch} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Resident & Ceiling & L1 & & Ceiling & L1 & Speedup \\
+\midrule
+40\% & 0  & 4.55  & & 2 & 12.77 & $2.81\ppl$ \\
+60\% & 0  & 3.64  & & 2 & 6.93  & $1.91\ppl$ \\
+80\% & 0  & 7.42  & & 4 & 15.06 & $2.03\ppl$ \\
+100\%& 12 & 105.7 & & 12 & 105.7 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Within-step parallel prefetch turns the cliff into a slope}
+Loading a step's cold experts \emph{concurrently}---worker threads read raw
+\texttt{safetensors} bytes (thread-safe file I/O) while the main thread performs a
+zero-copy view into MLX---converts the cliff into a slope: at 40\% residency the ceiling
+rises from 0 to 2 and single-user speed triples. The native router stays authoritative,
+so output is byte-identical (SHA unchanged). This is the shipped lever.
+
+\subsection{On the real >RAM model: parallel wins, prediction does not}
+\label{sec:abc}
+On Qwen3-30B-A3B streamed at pin-fraction~0.1 (13 of 128 experts resident per layer), we
+compare three dispatch strategies (Table~\ref{tab:abc}). Within-step \textbf{parallel}
+prefetch is a real $2.1\ppl$ win over serial; \textbf{predictive} prefetch
+(\emph{cross-step} speculation of the next step's experts) is \emph{worse than serial}.
+An earlier report that ``prefetch hurts'' was an implementation bug (a slow
+torch$\rightarrow$MLX read with no compute overlap); after rebuilding the read path the
+conclusion reverses for parallelism and stands only for prediction.
+
+\begin{table}[t]
+\centering
+\caption{Qwen3-30B-A3B, 18\,GB on 16\,GB, pin~0.1, cold-start shelf, identical
+engine/quant across arms. Per-user p05 tok/s.}
+\label{tab:abc}
+\small
+\begin{tabular}{llcc}
+\toprule
+Arm & Strategy & $N=1$ & $N=2$ \\
+\midrule
+A & serial (no prefetch)        & 0.909 & 0.316 \\
+\textbf{B} & \textbf{parallel prefetch} & \textbf{1.934} ($2.13\ppl$ A) & \textbf{1.063} \\
+C & predictive (cross-step) prefetch & 0.372 & 0.271 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The reason prediction does not pay on this hardware is bandwidth: with a single SSD,
+parallelism already hides the overlap, and a temporal predictor's mispredicted reads
+(${\sim}62\%$ miss rate) are wasted traffic that slows the critical path. Budgeting the
+speculative queue (per-step caps and a critical-path pause) prevented the worst flooding
+but did not make speculation profitable on cacheable models. This is a \emph{careful
+negative}, not a refutation of the literature: predictive prefetch should matter when the
+working set vastly exceeds cache \emph{and} idle bandwidth exists---a frontier-MoE
+regime and multi-NVMe tier we cannot reach on a laptop.
+
+\subsection{Residency-for-KV eviction is refuted}
+\label{sec:reskv}
+A natural idea is to evict some experts to disk, freeing RAM for more users' KV caches,
+and to recover the stream cost with prefetch. On OLMoE under a tight memory budget, this
+\emph{lowered} the p05 ceiling from 12 (full residency) to 4 at pin-fractions
+$0.5/0.7/0.9$ (Figure~\ref{fig:cliff}). The binding constraint is per-user \emph{speed},
+not KV capacity: at full residency the leftover RAM already holds enough KV for ${\sim}12$
+users and the speed floor binds first. Do not trade expert residency for KV on a single
+consumer SSD; keep experts resident and spend spare RAM on KV.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\linewidth]{figD.png}
+\caption{The residency cliff (no prefetch) and its removal by parallel prefetch. Ceiling
+is $0$ for any partial residency without prefetch, and $12$ only at full residency.}
+\label{fig:cliff}
+\end{figure}
+
+\subsection{The product test: llama.cpp cannot load it; ours streams it}
+\label{sec:product}
+Table~\ref{tab:product} reports the direct comparison on a 16\,GB Mac serving the 18\,GB
+model. llama.cpp's GPU paths fail outright: \texttt{-ngl 99} cannot allocate the model,
+and \texttt{-ngl 20} returns zero successful requests with a Metal out-of-memory error
+(logged \texttt{kIOGPUCommandBufferCallbackErrorOutOfMemory}). Our engine streams the
+same model at ${\approx}\SI{2.1}{tok/s}$ single-user. \textbf{This is a feasibility
+result, not a speed result}: at pin~0.1 our own throughput ($2.12$, $0.82$, $0.34$ tok/s
+at $N=1,2,4$) is also far below the \SI{10}{tok/s} floor, so the concurrency ceiling is
+$0$ for both. The honest claim is ``a model that does not fit can still be made to run,
+at usable-for-batch-1 but not SLO speeds, where the incumbent's GPU path cannot run it at
+all.'' Fairness caveat: llama.cpp \texttt{-ngl 0} (pure CPU) might avoid the OOM at very
+low speed; we did not run that multi-hour arm.
+
+\begin{table}[t]
+\centering
+\caption{16\,GB Mac, Qwen3-30B-A3B 18\,GB. Our arm is pinned parallel-prefetch streaming
+at pin~0.1; llama.cpp is the incumbent at its strongest realistic GPU settings.}
+\label{tab:product}
+\small
+\begin{tabular}{lll}
+\toprule
+Arm & Outcome \\
+\midrule
+Ours (pin 0.1, parallel prefetch) & runs; p05 $2.12$ / $0.82$ / $0.34$ tok/s at $N=1,2,4$ \\
+llama.cpp \texttt{-ngl 99}         & OOM (cannot allocate 18\,GB on Metal budget) \\
+llama.cpp \texttt{-ngl 20}         & 0/10 requests succeed (Metal OutOfMemory) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{How predictable is routing?}
+\label{sec:predict}
+To judge whether a learned predictor could help, we measured both aggregate and per-token
+predictability on OLMoE. Aggregate: mean top-10 coverage $28.3\%$, mean Zipf $\alpha=0.44$,
+entropy $5.86$/$6.0$ bits, top-10 prompt overlap $17.3\%$, cross-layer recall $15.7\%$---
+popularity and topic heuristics are weak. Per-token (200 prompts, next-token top-8 recall):
+static popularity $0.244$, \emph{temporal} (previous token) $0.381$, \emph{context}
+(prompt-so-far) $0.353$, semantic-topic $+0.015$. The exploitable signal is
+temporal/contextual, not topical, and a training-free Markov-1 predictor already beats
+popularity by ${\sim}14$ recall points---so a learned hidden-state predictor would be an
+upgrade, not a prerequisite. Yet even this usable signal did not pay off on a single SSD
+(Section~\ref{sec:abc}); it is motivation for testing prediction on higher-bandwidth
+hardware, not evidence to deploy it here.
+
+\subsection{Fidelity of streamed inference}
+\label{sec:fidelity}
+Fidelity rests on three structural gates plus the rental perplexity result
+(Section~\ref{sec:gate1ppl}, Table~\ref{tab:ppl}). The synthetic equivalence gate is
+\textbf{bit-exact} and the end-to-end greedy match is \textbf{identical (3/3)} on models
+that fit RAM; the streaming path reads experts \emph{verbatim} from the same 4-bit slabs,
+so numerics are byte-identical by construction and the residual risk is orchestration,
+not quantisation. On top of that, the rental gate (post kernel-parity fix) keeps streamed
+experts within $0.41\%$ perplexity of resident ones at the sparsest residency we tested.
+
+Two honest caveats remain. First, that gate varied residency on a model that \emph{fits}
+memory, so it certifies streamed-equals-resident equivalence, not end-to-end >RAM output
+fidelity. Second, a true >RAM cross-engine greedy match (ours-streamed versus a
+fully-resident reference) could not be run on the 16\,GB box, because llama.cpp OOMs
+before the reference loads; our cross-residency check instead showed \emph{near-tie
+rounding divergence}, not bit equality. We therefore treat >RAM token-exact fidelity as
+an \emph{open} item, reachable on a larger gate box, and do not claim it here.
+
+\paragraph{Strategic implication.} Big-model-on-small-hardware is, on a single consumer
+SSD, a \emph{capability} story bounded by bandwidth (${\approx}\SI{2.4}{tok/s}$ ceiling
+at pin~0.1 for a 3B-active model). The next doubling is a hardware tier (parallel NVMe),
+not cleverer prediction. The concurrency win of Experiment~I remains the regime where we
+beat llama.cpp on served users.
+
+\section{Discussion}
+
+\paragraph{One mechanism, two regimes.} Experiments~I and~II are the same bounded-working-set
+mechanism read at opposite ends of the RAM/model ratio. Where the model is a small
+fraction of RAM, the resident set amortises and yields a concurrency win; where the model
+approaches and then exceeds RAM, coverage cost and bandwidth dominate, the win vanishes,
+and the question becomes feasibility---whether streaming plus I/O overlap can make an
+oversized model run at all. The \emph{qs} inequality (arXiv:2603.08960) is the natural
+formal frame: routing fragments reuse, and a resident pool that is too large starves KV,
+which is exactly why our residency-for-KV experiment backfired.
+
+\paragraph{Position versus the field.} We have implemented pillar~1 of the working-set
+synthesis (bounded resident set plus streaming) and measured its ratio dependence. We
+have \emph{not} implemented the field's larger levers---properly budgeted predictive
+prefetch on fast media, expert-aware token scheduling, or cache-aware routing. Our engine
+is therefore close to the \emph{baseline} that the 2025--26 systems improve on, and our
+negatives (Sections~\ref{sec:abc}--\ref{sec:fidelity}) are honest statements about what
+that baseline does and does not need on one laptop.
+
+\section{Threats to Validity}
+
+\paragraph{Construct.} The p05 ceiling is a proxy for interactive service quality; we
+justify it over min/median (Section~\ref{sec:method}) but it is sensitive to the \SI{10}{tok/s}
+floor choice.
+
+\paragraph{Internal.} Repetitions are low (a handful per level) for cost reasons; we
+re-scored all arms at p05 and moved from min to p05 precisely because the earlier rule
+mis-ranked. A custom Metal kernel errored on some shapes and fell back to the validated
+\texttt{mx.gather\_qmm} path, so our wins measure \emph{orchestration}, not a bespoke
+kernel. We discovered and corrected prose-versus-frozen drifts (bandwidth $9.5\rightarrow
+10.6$, >RAM speed $2.32\rightarrow2.12$) and reconciled the perplexity gate to its
+post-fix PASS run (the pre-fix FAIL was a caught kernel-parity confound, not the result);
+the corrected, frozen values are used throughout.
+
+\paragraph{External.} Only NeoX-uniform-rope, full-attention MoE is supported; Llama-4,
+DeepSeek, gpt-oss, Cohere, DBRX, and mamba-hybrids fail pre-flight
+(Appendix~B). Hardware is a 16\,GB M1 Pro and one 24\,GB M4; the Qwen3-30B tie is
+cross-machine. OS page-cache behaviour inside llama.cpp's mmap path is not directly
+controlled.
+
+\paragraph{Conclusion formation.} The crossover \emph{direction} is robust; the exact
+threshold ratio is not (Section~\ref{sec:crossover} confound). We claim the former and
+disclaim the latter.
+
+\section{Conclusion}
+
+On Apple-Silicon unified memory, pinned-expert orchestration is a
+\emph{ratio-conditional} concurrency win and a \emph{bandwidth-bounded} feasibility
+mechanism. It doubles served concurrent users for small MoE models that fit comfortably
+in RAM (OLMoE, $3.8\ppl$, 16 vs.\ 8), an advantage that vanishes below ${\sim}2\ppl$ and
+reverses toward parity as models approach RAM, with the bound explained by measured
+routing overlap and skew. Beyond RAM, the same engine turns an unrunnable model into a
+runnable one (llama.cpp OOMs; ours streams at ${\approx}\SI{2}{tok/s}$), made usable by
+within-step parallel prefetch ($2.1\ppl$) that---unlike predictive prefetch and
+residency-for-KV eviction---actually pays on a single consumer SSD. We report the
+negatives and the corrected perplexity gate as first-class results. The path from
+feasibility to speed runs through a faster storage tier and the scheduling/prefetch
+pillars of the recent literature, which our baseline now measures the distance to.
+
+\section*{Reproducibility statement}
+Code, frozen raw logs, and the self-verifying headline extraction are committed; the
+GitHub repository is the durable archive of record, preserving all runs including
+failures. A temporary object-storage mirror is being retired and is not relied upon.
+See Appendix~A for the claim$\rightarrow$file$\rightarrow$script map.
+
+%===================== APPENDICES =====================
+\appendix
+
+\section{Claim-to-evidence map (methodology artifact)}
+
+Every number in this paper is read from a frozen file by
+\texttt{code/paper/extract\_headline\_numbers.py}, which emits
+\texttt{results/derived/paper\_headline\_numbers.json} and self-verifies each value by
+re-reading its source (exit~0 required). The primary traces:
+
+\begin{table}[h]
+\centering
+\small
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{p{0.30\linewidth}p{0.44\linewidth}l}
+\toprule
+Claim & Frozen source & Script \\
+\midrule
+Crossover ceilings (Table~\ref{tab:crossover}) & \texttt{results/crossover/p05}, \texttt{crossover\_qwen15/p05}, \texttt{p05\_rescore} & \texttt{p05\_rescore.py} \\
+OLMoE levels (Table~\ref{tab:olmoelevels}) & \texttt{results/crossover/*\_xover.requests.jsonl} & \texttt{run\_crossover.sh} \\
+Mechanism (Jaccard, coverage) & \texttt{olmoe\_trace400.json}, \texttt{...\_union.json} & \texttt{trace\_experts.py}, \texttt{union\_analysis.py} \\
+Cliff / prefetch (Table~\ref{tab:cliff}) & \texttt{results/pinfraction/p05} & \texttt{run\_pinfraction\_sweep.sh} \\
+A/B/C (Table~\ref{tab:abc}) & \texttt{results/ram30b2/p05} & same sweep harness \\
+Residency-for-KV (Sec.~\ref{sec:reskv}) & \texttt{results/reskv/p05} & same \\
+Product test (Table~\ref{tab:product}) & \texttt{results/ram\_vs\_llama/*} & harness + server logs \\
+Predictability (Sec.~\ref{sec:predict}) & \texttt{sequence\_predictability.json}, \texttt{predictability\_report.json} & \texttt{sequence\_predictability.py} \\
+Gate-1 ceilings (Table~\ref{tab:gate1}) & \texttt{results/p05\_rescore/p05\_ceilings.json} & \texttt{p05\_rescore.py} \\
+PPL gate (Table~\ref{tab:ppl}) & \texttt{.../p4gate/PPL\_OLMoE\_POSTFIX2.json} (post-fix), \texttt{PPL\_OLMoE.json} (pre-fix) & gate harness \\
+Bandwidth / attribution (Sec.~\ref{sec:gate1diag}) & \texttt{BANDWIDTH\_ATTRIBUTION.json}, \texttt{attribution\_qwen.log} & microbench + probe \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Corrections cascade (integrity / AI-usage disclosure)}
+This study was AI-assisted end to end, with a human authoring, reviewing, and approving
+every protocol and decision; no unsupervised decision was made. The following dated
+corrections (in \texttt{DECISIONS.md}) are reported because they changed published
+numbers, and are enforced by the map above.
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt,topsep=2pt]
+  \item \textbf{D-033.} Ceilings moved from a per-user \emph{minimum} and
+        \emph{censored} levels to \emph{p05} \emph{uncensored}: the headline became
+        $16$ vs.\ $8$ (same-machine 16\,GB) replacing an earlier $8$ vs.\ $4$ (24\,GB).
+        Ratio reframed from hardware-to-\emph{parameter}-count ($24\ppl/0.8\ppl$) to
+        RAM-to-\emph{4-bit-bytes} ($3.8/1.8/0.9\ppl$).
+  \item \textbf{D-048$\rightarrow$D-049$\rightarrow$D-050.} ``Predictive prefetch hurts''
+        was first over-claimed, then retracted as an implementation bug (a slow read path),
+        then rebuilt: parallel prefetch is a genuine $2.1\ppl$ win; prediction remains a
+        negative.
+  \item \textbf{Audit (this paper).} The Gate-1 rental was folded into this paper on one
+        p05 statistic (its raw logs re-scored via \texttt{p05\_rescore.py}), and prose
+        drifts were corrected to frozen data: bandwidth $9.5\rightarrow10.6$\,GB/s; >RAM
+        single-user speed $2.32\rightarrow2.12$\,tok/s (p05). A self-correction is also
+        disclosed: an intermediate pass read the \emph{pre-fix} perplexity run (gate FAIL)
+        as the result; the correct artifact is the \emph{post-fix} run (gate PASS, max
+        $0.41\%$), with the pre-fix breach at $P=0.5,0.6$ retained as the caught
+        kernel-parity confound (Section~\ref{sec:gate1ppl}).
+        \texttt{crossover\_lfm2} is a crash (a hybrid conv+attention model that violates the
+        serve path), not a fourth crossover point, and is excluded.
+  \item \textbf{D-012.} Two Stage-0 figures previously quoted from console memory were
+        replaced with frozen-data values ($1261.4$; reference arm $127.6$).
+\end{itemize}
+
+\section{Engine compatibility matrix}
+The serve path assumes NeoX (non-traditional) RoPE, full rotary, uniform per-layer
+\texttt{self\_attn.rope}, and 4-bit affine experts. \textbf{Compatible:} OLMoE-1B-7B,
+Qwen1.5-MoE, Mixtral-8x7B, Qwen3-30B-A3B. \textbf{Fail pre-flight:} LFM2 (conv+attn
+hybrid), gpt-oss (partial rotary + sliding window), Llama-4-Scout (traditional rope),
+Command-R (traditional rope + sliding window), DeepSeek-V3 (traditional + partial
+rotary), DBRX (no \texttt{self\_attn}), Granite-4.0-H (mamba hybrid), EXAONE-MoE
+(sliding window, untested). A runtime pre-flight check now fails loudly rather than
+producing silently wrong output. The reference product set is therefore the Qwen3-MoE
+family plus OLMoE-class models.
+
+\section{The custom-kernel detour (a negative result)}
+An early hypothesis was that closing the single-user gap required a bespoke fused gather
+kernel. A vectorised Python/MLX \texttt{efficient\_gather\_qmm} reproduced
+\texttt{mx.gather\_qmm} to a max difference of $1.4\times10^{-6}$ but ran \textbf{33\ppl
+slower} ($22.9$ vs.\ $0.65$\,ms), because it materialises dequantised tensors and cannot
+fuse dequantise$+$gather$+$matmul in one kernel the way MLX and llama.cpp do. A
+microbenchmark put the standard gather path at $10.6$\,GB/s on the intended-bytes basis
+(one run: $9.6$\,GB/s). The takeaway---kernel fusion, not Python-level vectorisation,
+governs the per-token floor---redirected the programme from custom kernels to
+\emph{orchestration}, which is where our wins come from. This appendix is retained as a
+decision-quality case study: the fast, cheap measurement killed an expensive optimisation
+before it consumed the project.
+
+\section{Hardware and cost context}
+Gate-1 ran on a 24\,GB AWS EC2 Mac (M4, dedicated host, \$1.23/hr, ${\sim}$24\,h,
+${\sim}$\$30), now released. All Gate-1 and laptop data---failures included---are
+preserved on the local machine and the GitHub repository, which is the durable archive;
+a temporary object-storage copy is being cleared and is not the archive of record. The
+crossover and >RAM results report the 16\,GB M1 Pro laptop unless a table states
+otherwise; Gate-1 results report the 24\,GB M4 (Section~\ref{sec:gate1}).
+
+%===================== BIBLIOGRAPHY =====================
+\begin{thebibliography}{99}
+\small
+\bibitem{wisph} WiSP: working-set MoE serving on low-resource hardware. arXiv:2606.21868.
+\bibitem{mawforge} MawForge: bounded expert cache with resident common tensors. arXiv:2607.09686.
+\bibitem{finegrain} Taming the latency--memory trade-off via fine-grained expert offloading. arXiv:2502.05370.
+\bibitem{duoserve} DuoServe-MoE: dual-phase prefill-dense / decode-sparse prefetch. arXiv:2509.07379.
+\bibitem{specprefetch} SpecPrefetch: parameter-efficient expert prefetching, native router authoritative. arXiv:2607.24787.
+\bibitem{klotski} Klotski: expert-aware multi-batch pipeline. arXiv:2502.06888.
+\bibitem{mocclike} Mixture of Cache-Conditional Experts. arXiv:2412.00099.
+\bibitem{cacheable} ``Cacheable by Design?'' (pre-registered negative). arXiv:2608.18261.
+\bibitem{qsineq} The \emph{qs} inequality: routing fragmentation and KV starvation. arXiv:2603.08960.
+\bibitem{fairbatching} FairBatching. arXiv:2510.14392.
+\bibitem{niyama} Niyama. arXiv:2503.22762.
+\bibitem{slosw} SLO-aware sliding-window scheduling. arXiv:2606.05933.
+\bibitem{memnotbw} Memory-bound but not bandwidth-limited. arXiv:2605.30571.
+\bibitem{npumoe} Efficient MoE inference with Apple Silicon NPUs. arXiv:2604.18788.
+\bibitem{multinode} Multi-node expert parallelism on Apple Silicon. arXiv:2506.23635.
+\end{thebibliography}
+
+\end{document}
