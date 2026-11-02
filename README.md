@@ -14,8 +14,8 @@
 > standard OpenAI-compatible HTTP API.
 
 Built by Youssef Hariri — maintained under DeeWaanAI, a brand of Mug and Bewong Ltd (UK Company No. 14916888). Accompanying paper:
-*"When Pinning Pays: A Measured Crossover Curve and a Feasibility Result for
-Mixture-of-Experts Serving on Consumer Unified Memory"* (see `docs/` and `CITATION.cff`).
+*"When Pinning Pays—and When It Doesn't: A Crossover Study and Beyond-RAM Feasibility
+Result for Mixture-of-Experts Serving on Apple Silicon"* (see `docs/` and `CITATION.cff`).
 
 ---
 
@@ -94,7 +94,7 @@ expect low single-digit tok/s on one SSD). The server exposes `/v1/models` and
 
 ## Reproducing the paper
 
-- `docs/P1_v0.1.pdf` / `.tex` — the paper; `docs/PAPER_PLAN.md` — the outline.
+- `docs/When_Pinning_Pays_Youssef_Hariri.pdf` — the paper.
 - `results/` — the **frozen derived data** behind every number: per-experiment p05
   ceilings (`results/ceilings/`), router-telemetry summaries (`results/telemetry/`), both
   perplexity-gate runs (`results/ppl/`), the self-verifying headline spine

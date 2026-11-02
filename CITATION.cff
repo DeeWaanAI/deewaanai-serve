@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use DeeWaanAI Serve, please cite the accompanying paper."
-title: "When Pinning Pays: A Measured Crossover Curve and a Feasibility Result for Mixture-of-Experts Serving on Consumer Unified Memory"
+title: "When Pinning Pays—and When It Doesn't: A Crossover Study and Beyond-RAM Feasibility Result for Mixture-of-Experts Serving on Apple Silicon"
 type: paper
 authors:
   - family-names: Hariri
