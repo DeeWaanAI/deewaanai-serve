@@ -128,4 +128,4 @@ rights to use the DeeWaanAI name or logo; forks must use a different name.
 
 ## Citation
 
-Cite the paper + data: **DOI [10.5281/zenodo.23182261](https://doi.org/10.5281/zenodo.23182261)** — see `CITATION.cff` and https://zenodo.org/records/23182261.
+Cite the paper + data: **DOI [10.5281/zenodo.23182002](https://doi.org/10.5281/zenodo.23182002)** (concept DOI — always resolves to the latest version; current version: [10.5281/zenodo.23891577](https://doi.org/10.5281/zenodo.23891577)) — see `CITATION.cff` and https://zenodo.org/records/23182002.
